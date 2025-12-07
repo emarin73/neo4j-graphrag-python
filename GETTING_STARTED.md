@@ -88,6 +88,31 @@ NEO4J_PASSWORD=your_aura_password
 
 The `.env` file is already in `.gitignore`, so your credentials won't be committed to git.
 
+**Complete .env file template:**
+
+Create a file named `.env` in your project root with the following content:
+
+```env
+# Neo4j Connection Configuration
+NEO4J_URI=neo4j://localhost:7687
+NEO4J_USER=neo4j
+NEO4J_PASSWORD=your_password_here
+NEO4J_DATABASE=neo4j
+
+# OpenAI API Key (required for LLM and embeddings)
+OPENAI_API_KEY=your_openai_api_key_here
+
+# Optional: Specify OpenAI model
+# OPENAI_MODEL=gpt-4o
+```
+
+**For Neo4j AuraDB (Cloud), use:**
+```env
+NEO4J_URI=neo4j+s://xxxxx.databases.neo4j.io
+NEO4J_USER=neo4j
+NEO4J_PASSWORD=your_aura_password
+```
+
 **To use .env files, install python-dotenv:**
 ```bash
 pip install python-dotenv
