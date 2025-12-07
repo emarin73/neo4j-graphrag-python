@@ -30,9 +30,25 @@ from pathlib import Path
 
 try:
     from dotenv import load_dotenv
+    import warnings
+    import logging
 
-    # Load environment variables from .env file if it exists
-    load_dotenv()
+    # Suppress python-dotenv parsing warnings for non-standard lines
+    # (like separator lines or instructions in template files)
+    # These warnings are harmless - dotenv will skip invalid lines and only parse KEY=VALUE format
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        # Temporarily suppress dotenv logger warnings
+        dotenv_logger = logging.getLogger("dotenv")
+        original_level = dotenv_logger.level
+        dotenv_logger.setLevel(logging.ERROR)
+        
+        # Load environment variables from .env file if it exists
+        # Set override=False so system env vars take precedence
+        load_dotenv(override=False)
+        
+        # Restore original logging level
+        dotenv_logger.setLevel(original_level)
 except ImportError:
     print(
         "Warning: python-dotenv not installed. Install with: pip install python-dotenv\n"

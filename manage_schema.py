@@ -29,7 +29,17 @@ from pathlib import Path
 
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    import warnings
+    import logging
+    
+    # Suppress python-dotenv parsing warnings for non-standard lines
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        dotenv_logger = logging.getLogger("dotenv")
+        original_level = dotenv_logger.level
+        dotenv_logger.setLevel(logging.ERROR)
+        load_dotenv(override=False)
+        dotenv_logger.setLevel(original_level)
 except ImportError:
     pass
 
