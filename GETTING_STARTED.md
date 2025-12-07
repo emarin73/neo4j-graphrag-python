@@ -60,16 +60,70 @@ poetry install --with dev --extras openai
 
 ## Quick Start
 
-### Step 1: Set Up Environment Variables
+### Step 1: Set Up Credentials
 
-Create a `.env` file in your project root (or set environment variables):
+You need to configure your Neo4j connection and API keys. There are three ways to do this:
+
+#### Option 1: Using a `.env` File (Recommended)
+
+Create a `.env` file in your project root directory:
 
 ```env
+# Neo4j Connection
 NEO4J_URI=neo4j://localhost:7687
 NEO4J_USER=neo4j
 NEO4J_PASSWORD=your_password
+NEO4J_DATABASE=neo4j
+
+# OpenAI API Key (for LLM and embeddings)
 OPENAI_API_KEY=your_openai_api_key
 ```
+
+**For Neo4j AuraDB (Cloud):**
+```env
+NEO4J_URI=neo4j+s://xxxxx.databases.neo4j.io
+NEO4J_USER=neo4j
+NEO4J_PASSWORD=your_aura_password
+```
+
+The `.env` file is already in `.gitignore`, so your credentials won't be committed to git.
+
+**To use .env files, install python-dotenv:**
+```bash
+pip install python-dotenv
+```
+
+#### Option 2: System Environment Variables
+
+Set these in your system before running scripts:
+
+**Windows PowerShell:**
+```powershell
+$env:NEO4J_URI="neo4j://localhost:7687"
+$env:NEO4J_USER="neo4j"
+$env:NEO4J_PASSWORD="your_password"
+$env:OPENAI_API_KEY="your_openai_api_key"
+```
+
+**Windows CMD:**
+```cmd
+set NEO4J_URI=neo4j://localhost:7687
+set NEO4J_USER=neo4j
+set NEO4J_PASSWORD=your_password
+set OPENAI_API_KEY=your_openai_api_key
+```
+
+**Linux/Mac:**
+```bash
+export NEO4J_URI="neo4j://localhost:7687"
+export NEO4J_USER="neo4j"
+export NEO4J_PASSWORD="your_password"
+export OPENAI_API_KEY="your_openai_api_key"
+```
+
+#### Option 3: Hardcode in Script (Not Recommended)
+
+You can edit scripts directly, but this is only for quick testing. **Never commit credentials to git.**
 
 ### Step 2: Choose Your Approach
 
@@ -95,10 +149,27 @@ Before building your knowledge graph, decide what entities and relationships you
 
 ### Step 4: Run the Pipeline
 
-Use one of the starter scripts provided:
-- `starter_build_kg_from_text.py` - For text input
-- `starter_build_kg_from_pdf.py` - For PDF files
-- `starter_build_kg_auto_schema.py` - Automatic schema extraction
+#### Quick Start: Build from PDF
+
+Use the ready-to-use script for PDF processing:
+
+```bash
+# Process a PDF with default schema
+python build_kg_from_pdf.py --pdf path/to/your/document.pdf
+
+# Process a PDF with automatic schema extraction
+python build_kg_from_pdf.py --pdf path/to/your/document.pdf --auto-schema
+
+# Add document metadata
+python build_kg_from_pdf.py --pdf document.pdf --metadata author "John Doe" --metadata source "Internal"
+```
+
+#### Other Starter Scripts
+
+You can also use these scripts from the examples:
+- `examples/build_graph/simple_kg_builder_from_text.py` - For text input
+- `examples/build_graph/simple_kg_builder_from_pdf.py` - For PDF files
+- `examples/build_graph/automatic_schema_extraction/` - Automatic schema extraction
 
 ## Example Use Cases
 
@@ -170,13 +241,44 @@ await kg_builder.run_async(text="Your text here...")
 If you get errors about APOC, make sure it's installed in your Neo4j instance. In Neo4j Desktop, go to your database → Plugins → Install APOC.
 
 ### Connection Issues
-- Verify your Neo4j URI format: `neo4j://localhost:7687` or `bolt://localhost:7687`
+
+**Missing Credentials:**
+- Make sure you've set `NEO4J_PASSWORD` (required)
+- Verify `NEO4J_URI` is set correctly
+- Check that your `.env` file is in the project root directory
+- If using system environment variables, ensure they're set in the same terminal session
+
+**Connection Failed:**
+- Verify your Neo4j URI format:
+  - Local: `neo4j://localhost:7687` or `bolt://localhost:7687`
+  - AuraDB: `neo4j+s://xxxxx.databases.neo4j.io`
 - Check if your Neo4j database is running
-- Verify credentials are correct
+- Verify credentials are correct (username and password)
+- For AuraDB, ensure you're using the correct connection string from the dashboard
+- Check firewall settings if connecting to a remote instance
+
+**Common URI Formats:**
+- Local Neo4j Desktop: `neo4j://localhost:7687`
+- Local Docker: `neo4j://localhost:7687`
+- Neo4j AuraDB Free: `neo4j+s://xxxxx.databases.neo4j.io`
+- Neo4j AuraDB Enterprise: `neo4j+s://xxxxx.databases.neo4j.io`
 
 ### API Key Issues
-- Make sure your API key is set in environment variables
-- Check that the API key is valid and has sufficient credits/quota
+
+**Missing API Key:**
+- Set `OPENAI_API_KEY` in your `.env` file or as a system environment variable
+- Verify the variable name is exactly `OPENAI_API_KEY` (case-sensitive)
+
+**Invalid API Key:**
+- Check that your API key is correct and hasn't expired
+- Verify you have sufficient credits/quota in your OpenAI account
+- Test your API key by making a simple API call outside of this project
+
+**For Other LLM Providers:**
+- Anthropic: Set `ANTHROPIC_API_KEY`
+- Cohere: Set `COHERE_API_KEY`
+- MistralAI: Set `MISTRAL_API_KEY`
+- See examples in the `examples/customize/llms/` directory for configuration
 
 ## Resources
 
