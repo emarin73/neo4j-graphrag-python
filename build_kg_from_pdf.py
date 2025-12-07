@@ -25,6 +25,7 @@ import argparse
 import asyncio
 import logging
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -66,6 +67,7 @@ from neo4j_graphrag.experimental.pipeline.types.schema import (
 )
 from neo4j_graphrag.llm import OpenAILLM
 from neo4j_graphrag.utils.rate_limit import RetryRateLimitHandler, is_rate_limit_error
+from tenacity import RetryError
 
 # Import schema manager for automatic schema tracking
 try:
@@ -280,6 +282,26 @@ def get_current_schema_dict() -> dict:
         "relationship_types": DEFAULT_RELATIONSHIP_TYPES,
         "patterns": DEFAULT_PATTERNS,
     }
+
+
+def extract_wait_time_from_error(error_message: str) -> float | None:
+    """Extract recommended wait time from OpenAI rate limit error message.
+    
+    Args:
+        error_message: The error message string
+        
+    Returns:
+        Wait time in seconds if found, None otherwise
+    """
+    # Look for patterns like "Please try again in 4.16s" or "try again in 4.16 seconds"
+    pattern = r"try again in ([\d.]+)\s*(?:s|seconds?)"
+    match = re.search(pattern, error_message, re.IGNORECASE)
+    if match:
+        try:
+            return float(match.group(1))
+        except (ValueError, IndexError):
+            pass
+    return None
 
 
 def increment_version(version: str) -> str:
@@ -723,6 +745,58 @@ async def main():
     except KeyboardInterrupt:
         logger.info("\nProcess interrupted by user.")
         sys.exit(1)
+    except RetryError as e:
+        # Handle case where all retry attempts were exhausted
+        error_str = str(e)
+        error_lower = error_str.lower()
+        
+        # Extract wait time from error message if available
+        wait_time = extract_wait_time_from_error(error_str)
+        
+        if "ratelimiterror" in error_lower or "rate limit" in error_lower or "429" in error_lower:
+            logger.error("=" * 60)
+            logger.error("RATE LIMIT ERROR - ALL RETRY ATTEMPTS EXHAUSTED")
+            logger.error("=" * 60)
+            logger.error("")
+            logger.error(f"The script attempted to retry the request {RATE_LIMIT_MAX_ATTEMPTS} times,")
+            logger.error("but all attempts failed due to rate limiting.")
+            logger.error("")
+            
+            if wait_time:
+                wait_minutes = int(wait_time / 60) + 1
+                logger.error(f"OpenAI suggests waiting: {wait_time:.1f} seconds (~{wait_minutes} minute{'s' if wait_minutes > 1 else ''})")
+                logger.error("")
+            
+            logger.error("RECOMMENDED ACTIONS:")
+            logger.error("")
+            if wait_time:
+                recommended_wait = max(5, int(wait_time / 60) + 2)  # Add buffer
+                logger.error(f"1. ⏱️  WAIT {recommended_wait}+ MINUTES - Your rate limit needs time to reset")
+            else:
+                logger.error("1. ⏱️  WAIT 5-10 MINUTES - Your rate limit needs time to reset")
+            logger.error("   Then run the script again.")
+            logger.error("")
+            logger.error("2. 📈 INCREASE RETRY CONFIGURATION in your .env file:")
+            logger.error("   RATE_LIMIT_MAX_ATTEMPTS=10")
+            logger.error("   RATE_LIMIT_MAX_WAIT=600  # 10 minutes")
+            logger.error("")
+            logger.error("3. 🔍 CHECK YOUR USAGE:")
+            logger.error("   https://platform.openai.com/account/rate-limits")
+            logger.error("   Your limit: 30,000 tokens/minute")
+            logger.error("")
+            logger.error("4. 💡 CONSIDER:")
+            logger.error("   - Processing smaller PDFs")
+            logger.error("   - Waiting between runs")
+            logger.error("   - Upgrading your OpenAI plan for higher limits")
+            logger.error("")
+            logger.error(f"Current retry configuration: {RATE_LIMIT_MAX_ATTEMPTS} attempts, "
+                        f"{RATE_LIMIT_MIN_WAIT}-{RATE_LIMIT_MAX_WAIT}s wait times")
+            logger.error("")
+            logger.error("=" * 60)
+            sys.exit(1)
+        else:
+            logger.error(f"RetryError: All retry attempts exhausted. Original error: {e}", exc_info=True)
+            sys.exit(1)
     except (RateLimitError, LLMGenerationError) as e:
         error_str = str(e).lower()
         if is_rate_limit_error(e) or "429" in error_str or "rate limit" in error_str:
@@ -752,6 +826,25 @@ async def main():
             logger.error(f"LLM Error: {e}", exc_info=True)
             sys.exit(1)
     except Exception as e:
+        error_str = str(e).lower()
+        # Check if it's a rate limit related error in the exception chain
+        if "ratelimiterror" in error_str or "rate limit" in error_str or "429" in error_str or "retryerror" in error_str:
+            logger.error("=" * 60)
+            logger.error("RATE LIMIT ERROR - ALL RETRY ATTEMPTS EXHAUSTED")
+            logger.error("=" * 60)
+            logger.error("")
+            logger.error("The script attempted multiple retries but all failed.")
+            logger.error("")
+            logger.error("RECOMMENDED: Wait 5-10 minutes, then run the script again.")
+            logger.error("")
+            logger.error("To increase retry attempts, add to your .env file:")
+            logger.error("  RATE_LIMIT_MAX_ATTEMPTS=10")
+            logger.error("  RATE_LIMIT_MAX_WAIT=600")
+            logger.error("")
+            logger.error(f"Current settings: {RATE_LIMIT_MAX_ATTEMPTS} attempts, "
+                        f"{RATE_LIMIT_MIN_WAIT}-{RATE_LIMIT_MAX_WAIT}s wait times")
+            logger.error("=" * 60)
+            sys.exit(1)
         logger.error(f"Error building knowledge graph: {e}", exc_info=True)
         sys.exit(1)
 
