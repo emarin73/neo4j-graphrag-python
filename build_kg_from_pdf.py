@@ -94,7 +94,9 @@ NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "")
 NEO4J_DATABASE = os.getenv("NEO4J_DATABASE", "neo4j")
 
 # LLM Configuration
-LLM_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
+# Default to gpt-4o-mini for better rate limits (200k TPM vs 30k TPM) and lower cost
+# Override with OPENAI_MODEL environment variable if needed
+LLM_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # Rate Limit Configuration (can be overridden via environment variables)

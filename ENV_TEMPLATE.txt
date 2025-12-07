@@ -22,10 +22,12 @@ NEO4J_DATABASE=neo4j
 OPENAI_API_KEY=your_openai_api_key_here
 
 # Optional: Specify which OpenAI model to use
+# Default is now gpt-4o-mini (recommended for large PDFs)
 # Recommended models:
-#   - gpt-4o-mini: Faster, cheaper, 200k TPM rate limit (good for large PDFs)
-#   - gpt-4o: More capable, 30k TPM rate limit (better quality, slower)
-# OPENAI_MODEL=gpt-4o-mini
+#   - gpt-4o-mini: Faster, cheaper, 200k TPM rate limit (RECOMMENDED - avoids rate limit issues)
+#   - gpt-4o: More capable, 30k TPM rate limit (may hit rate limits on large PDFs)
+# Uncomment and change if you want to use gpt-4o:
+# OPENAI_MODEL=gpt-4o
 
 # Optional: Rate Limit Configuration
 # RATE_LIMIT_MAX_ATTEMPTS=5
