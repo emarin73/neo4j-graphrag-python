@@ -517,6 +517,10 @@ async def build_knowledge_graph_from_pdf(
         logger.info("=" * 60)
         logger.info("Starting knowledge graph construction...")
         logger.info("This may take a while depending on PDF size...")
+        logger.info("")
+        logger.info("Note: If you see rate limit warnings (429 errors), don't worry!")
+        logger.info("The script will automatically retry with exponential backoff.")
+        logger.info("Look for '200 OK' responses to see successful requests.")
         logger.info("=" * 60)
 
         result = await kg_builder.run_async(
