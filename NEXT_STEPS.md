@@ -61,7 +61,14 @@ NEO4J_USER=neo4j
 NEO4J_PASSWORD=your_actual_password
 NEO4J_DATABASE=neo4j
 OPENAI_API_KEY=your_actual_openai_key
+
+# Recommended: Use gpt-4o-mini for better rate limits (200k TPM vs 30k)
+OPENAI_MODEL=gpt-4o-mini
 ```
+
+**Model Selection Tips:**
+- **`gpt-4o-mini`** (Recommended): 200k TPM, much cheaper, excellent for knowledge graphs
+- **`gpt-4o`**: Better quality, but 30k TPM limit (may hit rate limits on large PDFs)
 
 **Important:** Never commit your `.env` file to git! (It's already in .gitignore)
 
@@ -132,6 +139,12 @@ Once the script completes:
     ```
   - For large PDFs, expect the process to take longer due to rate limiting
   - Check your OpenAI usage limits: https://platform.openai.com/account/rate-limits
+  - **💡 BEST SOLUTION: Switch to `gpt-4o-mini`** 
+    - **Rate Limits**: 200,000 TPM (vs 30,000 for gpt-4o) - 6.7x higher!
+    - **Cost**: ~60x cheaper than gpt-4o
+    - **Quality**: Excellent for knowledge graph extraction tasks
+    - **How to switch**: Add to your `.env` file: `OPENAI_MODEL=gpt-4o-mini`
+    - This will dramatically reduce or eliminate rate limit issues
   - Consider processing smaller PDFs or upgrading your OpenAI plan for higher limits
 
 ### Connection Issues
@@ -168,8 +181,20 @@ Once the script completes:
 3. **Customize Schema** - Edit the schema in `build_kg_from_pdf.py` to extract specific entities
 4. **Process Multiple PDFs** - Run the script multiple times to build a larger knowledge base
 
+## Choosing the Right OpenAI Model
+
+If you're hitting rate limits, consider using `gpt-4o-mini` instead of `gpt-4o`:
+
+- **Rate Limits**: 200,000 TPM (vs 30,000 for gpt-4o) - 6.7x higher!
+- **Cost**: ~60x cheaper
+- **Quality**: Excellent for knowledge graph extraction
+- **How**: Add `OPENAI_MODEL=gpt-4o-mini` to your `.env` file
+
+See `MODEL_COMPARISON.md` for detailed comparison and recommendations.
+
 ## Need Help?
 
 - Check `GETTING_STARTED.md` for detailed documentation
+- Review `MODEL_COMPARISON.md` for model selection guidance
 - Review examples in `examples/` directory
 - Visit [Neo4j Community](https://community.neo4j.com/) for support
