@@ -102,7 +102,25 @@ Shows comprehensive schema status information.
 
 ## Automatic Schema Tracking (Recommended)
 
-To automatically track schema versions when building graphs, you can integrate schema versioning into your build script. The schema will be automatically stored after each build.
+Automatic schema tracking is now **integrated** into `build_kg_from_pdf.py`! Simply use the `--track-schema` flag when building your knowledge graph, and the schema will be automatically tracked after each successful build.
+
+**Usage:**
+```bash
+# Automatically track schema with auto-incrementing version
+python build_kg_from_pdf.py --pdf document.pdf --track-schema
+
+# Track schema with explicit version
+python build_kg_from_pdf.py --pdf document.pdf --track-schema --schema-version "1.0.0" --schema-description "Initial schema"
+```
+
+**Features:**
+- Automatically compares current schema with stored version
+- Auto-increments version number when schema changes (e.g., 1.0.0 → 1.0.1)
+- Shows detailed change summary before storing
+- Only stores new version if schema has changed
+- Works seamlessly with your build workflow
+
+**Note:** Automatic tracking only works with predefined schemas (not with `--auto-schema` mode, since that generates dynamic schemas).
 
 ## Migration Workflow
 
@@ -161,7 +179,7 @@ If you change `"Section"` to `"CodeSection"`:
 
 ## Integration with Build Script
 
-You can integrate automatic schema tracking into `build_kg_from_pdf.py` by adding schema version storage after successful builds. This ensures your schema is always tracked.
+Automatic schema tracking is now built into `build_kg_from_pdf.py`! Use the `--track-schema` flag to enable it. The schema will be automatically compared, versioned, and stored after each successful build.
 
 ## Troubleshooting
 

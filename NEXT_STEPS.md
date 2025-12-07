@@ -114,6 +114,20 @@ Once the script completes:
 
 ## Troubleshooting
 
+### Rate Limit Errors (429)
+- **Problem:** Error code 429 - Rate limit reached
+- **Solution:** 
+  - The script now has **automatic retry** with exponential backoff built-in
+  - If errors persist, wait a few minutes before running again
+  - Increase retry attempts by adding to your `.env` file:
+    ```
+    RATE_LIMIT_MAX_ATTEMPTS=10
+    RATE_LIMIT_MAX_WAIT=300
+    ```
+  - Check your OpenAI usage limits: https://platform.openai.com/account/rate-limits
+  - Consider using a smaller PDF or processing in chunks
+  - The script will automatically retry up to 5 times (configurable) with increasing wait times
+
 ### Connection Issues
 - **Problem:** Can't connect to Neo4j
 - **Solution:** 

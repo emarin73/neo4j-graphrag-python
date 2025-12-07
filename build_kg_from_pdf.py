@@ -18,6 +18,7 @@ Configuration:
 Usage:
     python build_kg_from_pdf.py --pdf path/to/document.pdf
     python build_kg_from_pdf.py --pdf path/to/document.pdf --auto-schema
+    python build_kg_from_pdf.py --pdf path/to/document.pdf --track-schema
 """
 
 import argparse
@@ -40,6 +41,7 @@ except ImportError:
 
 import neo4j
 from neo4j_graphrag.embeddings import OpenAIEmbeddings
+from neo4j_graphrag.exceptions import LLMGenerationError, RateLimitError
 from neo4j_graphrag.experimental.pipeline.kg_builder import SimpleKGPipeline
 from neo4j_graphrag.experimental.pipeline.pipeline import PipelineResult
 from neo4j_graphrag.experimental.pipeline.types.schema import (
@@ -47,6 +49,14 @@ from neo4j_graphrag.experimental.pipeline.types.schema import (
     RelationInputType,
 )
 from neo4j_graphrag.llm import OpenAILLM
+from neo4j_graphrag.utils.rate_limit import RetryRateLimitHandler, is_rate_limit_error
+
+# Import schema manager for automatic schema tracking
+try:
+    from schema_manager import SchemaManager
+    SCHEMA_MANAGER_AVAILABLE = True
+except ImportError:
+    SCHEMA_MANAGER_AVAILABLE = False
 
 # Configure logging
 logging.basicConfig(
@@ -68,6 +78,12 @@ NEO4J_DATABASE = os.getenv("NEO4J_DATABASE", "neo4j")
 # LLM Configuration
 LLM_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+# Rate Limit Configuration (can be overridden via environment variables)
+RATE_LIMIT_MAX_ATTEMPTS = int(os.getenv("RATE_LIMIT_MAX_ATTEMPTS", "5"))
+RATE_LIMIT_MIN_WAIT = float(os.getenv("RATE_LIMIT_MIN_WAIT", "2.0"))
+RATE_LIMIT_MAX_WAIT = float(os.getenv("RATE_LIMIT_MAX_WAIT", "120.0"))
+RATE_LIMIT_MULTIPLIER = float(os.getenv("RATE_LIMIT_MULTIPLIER", "2.0"))
 
 # ============================================================================
 # SCHEMA DEFINITION - Customize based on your document type
@@ -241,6 +257,134 @@ def check_pdf_exists(pdf_path: str | Path) -> tuple[bool, str]:
     return True, ""
 
 
+def get_current_schema_dict() -> dict:
+    """Get current schema as a dictionary for version tracking."""
+    return {
+        "node_types": DEFAULT_NODE_TYPES,
+        "relationship_types": DEFAULT_RELATIONSHIP_TYPES,
+        "patterns": DEFAULT_PATTERNS,
+    }
+
+
+def increment_version(version: str) -> str:
+    """Increment a semantic version string.
+    
+    Args:
+        version: Version string in format "X.Y.Z"
+        
+    Returns:
+        Incremented version string (patch version incremented by default)
+    """
+    try:
+        parts = version.split(".")
+        if len(parts) == 3:
+            major, minor, patch = parts
+            patch_num = int(patch) + 1
+            return f"{major}.{minor}.{patch_num}"
+        else:
+            # If format is unexpected, return 1.0.1
+            return "1.0.1"
+    except (ValueError, IndexError):
+        return "1.0.1"
+
+
+async def track_schema_automatically(
+    driver: neo4j.Driver,
+    schema: dict,
+    version: str | None = None,
+    description: str | None = None,
+    auto_increment: bool = True,
+) -> None:
+    """Automatically track schema version after build.
+    
+    Args:
+        driver: Neo4j driver instance
+        schema: Schema dictionary to track
+        version: Optional version string (auto-incremented if not provided)
+        description: Optional description for this version
+        auto_increment: If True, auto-increment version when schema changes
+    """
+    if not SCHEMA_MANAGER_AVAILABLE:
+        logger.warning(
+            "Schema tracking skipped: schema_manager module not available. "
+            "Ensure schema_manager.py is in the same directory."
+        )
+        return
+    
+    try:
+        manager = SchemaManager(driver, database=NEO4J_DATABASE)
+        
+        # Get stored schema version
+        stored_version = await manager.get_current_schema_version()
+        
+        if stored_version:
+            stored_schema = {
+                "node_types": stored_version.node_types,
+                "relationship_types": stored_version.relationship_types,
+                "patterns": stored_version.patterns,
+            }
+            
+            # Compare schemas
+            changes = manager.compare_schemas(stored_schema, schema)
+            
+            if not changes:
+                logger.info(
+                    f"✓ Schema unchanged (version {stored_version.version}). "
+                    "No update needed."
+                )
+                return
+            
+            logger.info(f"Schema changes detected ({len(changes)} changes):")
+            for change in changes[:5]:  # Show first 5 changes
+                logger.info(
+                    f"  - {change.change_type.upper()}: "
+                    f"{change.entity_type} '{change.name}'"
+                )
+            if len(changes) > 5:
+                logger.info(f"  ... and {len(changes) - 5} more changes")
+            
+            # Determine version
+            if version:
+                new_version = version
+            elif auto_increment:
+                new_version = increment_version(stored_version.version)
+                logger.info(
+                    f"Auto-incrementing version: {stored_version.version} → {new_version}"
+                )
+            else:
+                logger.warning(
+                    "Schema has changed but no version specified. "
+                    "Skipping schema tracking. Use --schema-version to store."
+                )
+                return
+        
+        else:
+            # No stored schema - this is the first time
+            logger.info("No existing schema version found. Storing initial schema.")
+            if not version:
+                new_version = "1.0.0"
+                logger.info(f"Using initial version: {new_version}")
+            else:
+                new_version = version
+        
+        # Store the schema version
+        if not description:
+            description = f"Automatically tracked after build"
+        
+        success = await manager.store_schema_version(
+            schema, version=new_version, description=description
+        )
+        
+        if success:
+            logger.info(f"✓ Schema version {new_version} stored successfully")
+        else:
+            logger.error("Failed to store schema version")
+    
+    except Exception as e:
+        logger.warning(f"Schema tracking failed (non-fatal): {e}")
+        logger.debug("Schema tracking error details:", exc_info=True)
+
+
 # ============================================================================
 # MAIN PIPELINE FUNCTION
 # ============================================================================
@@ -251,6 +395,9 @@ async def build_knowledge_graph_from_pdf(
     auto_schema: bool = False,
     schema: dict | None = None,
     document_metadata: dict | None = None,
+    track_schema: bool = False,
+    schema_version: str | None = None,
+    schema_description: str | None = None,
 ) -> PipelineResult:
     """Build a knowledge graph from a PDF file.
 
@@ -259,6 +406,10 @@ async def build_knowledge_graph_from_pdf(
         auto_schema: If True, let LLM automatically determine schema
         schema: Custom schema dictionary (ignored if auto_schema is True)
         document_metadata: Optional metadata to attach to the document node
+        track_schema: If True, automatically track schema version after build
+        schema_version: Optional schema version string (e.g., "1.0.0"). If not provided
+            and track_schema is True, version will auto-increment when schema changes
+        schema_description: Optional description for the schema version
 
     Returns:
         PipelineResult with information about the graph construction
@@ -281,8 +432,21 @@ async def build_knowledge_graph_from_pdf(
         driver.verify_connectivity()
         logger.info("✓ Successfully connected to Neo4j")
 
-        # Initialize LLM
+        # Initialize LLM with enhanced rate limiting
         logger.info(f"Initializing LLM: {LLM_MODEL}")
+        logger.info(
+            f"Rate limit configuration: {RATE_LIMIT_MAX_ATTEMPTS} max attempts, "
+            f"{RATE_LIMIT_MIN_WAIT}-{RATE_LIMIT_MAX_WAIT}s wait times"
+        )
+        
+        rate_limit_handler = RetryRateLimitHandler(
+            max_attempts=RATE_LIMIT_MAX_ATTEMPTS,
+            min_wait=RATE_LIMIT_MIN_WAIT,
+            max_wait=RATE_LIMIT_MAX_WAIT,
+            multiplier=RATE_LIMIT_MULTIPLIER,
+            jitter=True,
+        )
+        
         llm = OpenAILLM(
             model_name=LLM_MODEL,
             model_params={
@@ -290,11 +454,15 @@ async def build_knowledge_graph_from_pdf(
                 "response_format": {"type": "json_object"},
                 "temperature": 0,
             },
+            rate_limit_handler=rate_limit_handler,
         )
 
-        # Initialize Embedder
+        # Initialize Embedder with enhanced rate limiting
         logger.info("Initializing embedder...")
-        embedder = OpenAIEmbeddings(model="text-embedding-3-large")
+        embedder = OpenAIEmbeddings(
+            model="text-embedding-3-large",
+            rate_limit_handler=rate_limit_handler,
+        )
 
         # Create the knowledge graph pipeline
         if auto_schema:
@@ -345,6 +513,27 @@ async def build_knowledge_graph_from_pdf(
         logger.info(f"Result: {result}")
         logger.info("=" * 60)
 
+        # Automatic schema tracking (only for predefined schemas, not auto-schema)
+        if track_schema and not auto_schema:
+            logger.info("")
+            logger.info("=" * 60)
+            logger.info("Schema Version Tracking")
+            logger.info("=" * 60)
+            
+            schema_to_track = schema or get_current_schema_dict()
+            await track_schema_automatically(
+                driver=driver,
+                schema=schema_to_track,
+                version=schema_version,
+                description=schema_description,
+                auto_increment=(schema_version is None),
+            )
+        elif track_schema and auto_schema:
+            logger.info(
+                "Schema tracking skipped: Auto-schema mode generates dynamic schemas "
+                "that cannot be automatically tracked. Use manual schema management instead."
+            )
+
         return result
 
     finally:
@@ -377,6 +566,12 @@ Examples:
   # Process PDF with custom metadata
   python build_kg_from_pdf.py --pdf document.pdf --metadata author "John Doe" --metadata source "Internal"
 
+  # Process PDF with automatic schema version tracking
+  python build_kg_from_pdf.py --pdf document.pdf --track-schema
+
+  # Process PDF with explicit schema version
+  python build_kg_from_pdf.py --pdf document.pdf --track-schema --schema-version "1.0.0" --schema-description "Initial schema"
+
 Configuration:
   Set environment variables in a .env file or system environment:
   - NEO4J_URI (default: neo4j://localhost:7687)
@@ -385,6 +580,12 @@ Configuration:
   - NEO4J_DATABASE (default: neo4j)
   - OPENAI_API_KEY (required)
   - OPENAI_MODEL (default: gpt-4o)
+  
+  Rate Limit Configuration (optional):
+  - RATE_LIMIT_MAX_ATTEMPTS (default: 5) - Max retry attempts for rate limits
+  - RATE_LIMIT_MIN_WAIT (default: 2.0) - Min wait time between retries (seconds)
+  - RATE_LIMIT_MAX_WAIT (default: 120.0) - Max wait time between retries (seconds)
+  - RATE_LIMIT_MULTIPLIER (default: 2.0) - Exponential backoff multiplier
         """,
     )
 
@@ -414,6 +615,24 @@ Configuration:
         "-v",
         action="store_true",
         help="Enable verbose logging",
+    )
+
+    parser.add_argument(
+        "--track-schema",
+        action="store_true",
+        help="Automatically track schema version after build (compares and stores if changed)",
+    )
+
+    parser.add_argument(
+        "--schema-version",
+        type=str,
+        help="Schema version string (e.g., '1.0.0'). If not provided and --track-schema is used, version will auto-increment",
+    )
+
+    parser.add_argument(
+        "--schema-description",
+        type=str,
+        help="Optional description for the schema version (used with --track-schema)",
     )
 
     return parser.parse_args()
@@ -462,6 +681,9 @@ async def main():
             pdf_path=args.pdf,
             auto_schema=args.auto_schema,
             document_metadata=document_metadata,
+            track_schema=getattr(args, "track_schema", False),
+            schema_version=getattr(args, "schema_version", None),
+            schema_description=getattr(args, "schema_description", None),
         )
 
         logger.info("")
@@ -481,6 +703,34 @@ async def main():
     except KeyboardInterrupt:
         logger.info("\nProcess interrupted by user.")
         sys.exit(1)
+    except (RateLimitError, LLMGenerationError) as e:
+        error_str = str(e).lower()
+        if is_rate_limit_error(e) or "429" in error_str or "rate limit" in error_str:
+            logger.error("=" * 60)
+            logger.error("RATE LIMIT ERROR")
+            logger.error("=" * 60)
+            logger.error(f"Error: {e}")
+            logger.error("")
+            logger.error("You've hit OpenAI's rate limit. The script will automatically retry,")
+            logger.error(f"but if the error persists, try the following:")
+            logger.error("")
+            logger.error("1. Wait a few minutes before running again")
+            logger.error("2. Increase rate limit retry attempts (set in environment):")
+            logger.error("   RATE_LIMIT_MAX_ATTEMPTS=10")
+            logger.error("3. Increase maximum wait time:")
+            logger.error("   RATE_LIMIT_MAX_WAIT=300  # 5 minutes")
+            logger.error("4. Check your OpenAI usage limits:")
+            logger.error("   https://platform.openai.com/account/rate-limits")
+            logger.error("5. Consider using a lower-tier model or reducing PDF size")
+            logger.error("")
+            logger.error("The script has been configured with automatic retries.")
+            logger.error(f"Current settings: {RATE_LIMIT_MAX_ATTEMPTS} attempts, "
+                        f"{RATE_LIMIT_MIN_WAIT}-{RATE_LIMIT_MAX_WAIT}s wait times")
+            logger.error("=" * 60)
+            sys.exit(1)
+        else:
+            logger.error(f"LLM Error: {e}", exc_info=True)
+            sys.exit(1)
     except Exception as e:
         logger.error(f"Error building knowledge graph: {e}", exc_info=True)
         sys.exit(1)
