@@ -72,55 +72,100 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 # ============================================================================
 # SCHEMA DEFINITION - Customize based on your document type
 # ============================================================================
-
-# Default schema for general document processing
-# You can customize this or use --auto-schema to let the LLM determine it
+#
+# This schema defines what entities and relationships the LLM will extract
+# from your PDF documents. You can customize:
+#
+# 1. DEFAULT_NODE_TYPES - The types of entities (nodes) to extract
+# 2. DEFAULT_RELATIONSHIP_TYPES - The types of relationships (edges) to extract
+# 3. DEFAULT_PATTERNS - Valid combinations of relationships
+#
+# Each node type can be:
+#   - Simple string: "Ordinance"
+#   - Dict with description: {"label": "Section", "description": "..."}
+#   - Dict with properties: {"label": "Section", "properties": [...]}
+#
+# Schema location: Lines 79-134 in this file
+#
+# Alternative: Use --auto-schema flag to let LLM automatically determine schema
+#
+# ============================================================================
 
 DEFAULT_NODE_TYPES: list[EntityInputType] = [
-    "Person",
     {
-        "label": "Organization",
-        "description": "Companies, institutions, groups, or organizations",
+        "label": "Ordinance",
+        "description": "A specific adopted ordinance (e.g. Ord 2024-15)",
     },
     {
-        "label": "Location",
-        "description": "Geographic locations, places, venues, addresses",
+        "label": "Section",
+        "description": "A codified section (e.g. §12-3-105)",
     },
     {
-        "label": "Event",
-        "description": "Events, incidents, or occurrences",
+        "label": "Chapter",
+        "description": "A chapter in the code, part of the hierarchy",
     },
     {
-        "label": "Concept",
-        "description": "Abstract concepts, topics, or themes",
+        "label": "Title",
+        "description": "A title in the code, part of the hierarchy",
     },
     {
-        "label": "Product",
-        "description": "Products, services, or offerings",
+        "label": "Topic",
+        "description": "Legal topics such as zoning, fencing, noise, signs, etc.",
+    },
+    {
+        "label": "Zone",
+        "description": "Zoning districts (R-1, R-2, C-1, etc.)",
+    },
+    {
+        "label": "Actor",
+        "description": "Departments, boards, officials (e.g. Planning Dept, Code Enforcement Office)",
+    },
+    {
+        "label": "Obligation",
+        "description": "Normalized rules or requirements that must be followed",
+    },
+    {
+        "label": "Prohibition",
+        "description": "Normalized rules or activities that are forbidden",
+    },
+    {
+        "label": "Penalty",
+        "description": "Fines, imprisonment, remedies for violations",
+    },
+    {
+        "label": "Term",
+        "description": "Defined legal terms (e.g. Accessory Structure, Short-term rental)",
     },
 ]
 
 DEFAULT_RELATIONSHIP_TYPES: list[RelationInputType] = [
-    "RELATED_TO",
-    "LOCATED_IN",
+    "ENACTS",
+    "AMENDS",
+    "REPEALS",
     "PART_OF",
-    "INVOLVED_IN",
-    "MENTIONED_IN",
-    "CREATED_BY",
-    "WORKS_FOR",
-    "MANAGES",
+    "REFERS_TO",
+    "APPLIES_TO",
+    "HAS_TOPIC",
+    "DEFINES",
+    "IMPOSED_BY",
+    "FOR_VIOLATION_OF",
+    "ENFORCES",
 ]
 
 DEFAULT_PATTERNS = [
-    ("Person", "RELATED_TO", "Person"),
-    ("Person", "PART_OF", "Organization"),
-    ("Person", "WORKS_FOR", "Organization"),
-    ("Person", "MANAGES", "Person"),
-    ("Organization", "LOCATED_IN", "Location"),
-    ("Person", "LOCATED_IN", "Location"),
-    ("Event", "INVOLVED_IN", "Person"),
-    ("Event", "INVOLVED_IN", "Organization"),
-    ("Product", "CREATED_BY", "Organization"),
+    ("Ordinance", "ENACTS", "Section"),
+    ("Ordinance", "AMENDS", "Section"),
+    ("Ordinance", "REPEALS", "Section"),
+    ("Section", "PART_OF", "Chapter"),
+    ("Chapter", "PART_OF", "Title"),
+    ("Section", "REFERS_TO", "Section"),
+    ("Section", "APPLIES_TO", "Zone"),
+    ("Section", "HAS_TOPIC", "Topic"),
+    ("Section", "DEFINES", "Term"),
+    ("Obligation", "IMPOSED_BY", "Section"),
+    ("Penalty", "FOR_VIOLATION_OF", "Section"),
+    ("Penalty", "FOR_VIOLATION_OF", "Obligation"),
+    ("Actor", "ENFORCES", "Section"),
 ]
 
 
