@@ -117,9 +117,16 @@ class SchemaManager:
         RETURN s
         """
 
+        # Serialize nested structures to JSON strings for Neo4j storage
+        # Neo4j can only store primitive types, not nested objects
         node_types = schema.get("node_types", [])
         relationship_types = schema.get("relationship_types", [])
         patterns = schema.get("patterns", [])
+        
+        # Convert to JSON strings for storage
+        node_types_json = json.dumps(node_types) if node_types else "[]"
+        relationship_types_json = json.dumps(relationship_types) if relationship_types else "[]"
+        patterns_json = json.dumps(patterns) if patterns else "[]"
 
         try:
             result = self.driver.execute_query(
@@ -127,9 +134,9 @@ class SchemaManager:
                 {
                     "version": version,
                     "schema_hash": schema_hash,
-                    "node_types": node_types,
-                    "relationship_types": relationship_types,
-                    "patterns": patterns,
+                    "node_types": node_types_json,
+                    "relationship_types": relationship_types_json,
+                    "patterns": patterns_json,
                     "description": description or "",
                 },
                 database_=self.database,
@@ -164,14 +171,21 @@ class SchemaManager:
                 return None
 
             record = result
+            node_data = record.get("s", {})
+            
+            # Deserialize JSON strings back to objects
+            node_types = json.loads(node_data.get("node_types", "[]"))
+            relationship_types = json.loads(node_data.get("relationship_types", "[]"))
+            patterns = json.loads(node_data.get("patterns", "[]"))
+            
             return SchemaVersion(
-                version=record.get("s", {}).get("version", ""),
-                schema_hash=record.get("s", {}).get("schema_hash", ""),
-                node_types=record.get("s", {}).get("node_types", []),
-                relationship_types=record.get("s", {}).get("relationship_types", []),
-                patterns=record.get("s", {}).get("patterns", []),
-                created_at=record.get("s", {}).get("created_at", ""),
-                description=record.get("s", {}).get("description"),
+                version=node_data.get("version", ""),
+                schema_hash=node_data.get("schema_hash", ""),
+                node_types=node_types,
+                relationship_types=relationship_types,
+                patterns=patterns,
+                created_at=node_data.get("created_at", ""),
+                description=node_data.get("description"),
             )
 
         except Exception as e:
