@@ -11,14 +11,14 @@ Note: The .env file is automatically ignored by git for security.
 # Neo4j Connection Configuration
 NEO4J_URI=neo4j://localhost:7687
 NEO4J_USER=neo4j
-NEO4J_PASSWORD=your_password_here
+NEO4J_PASSWORD=DcumHSmN_vUGJvqn0CE_iN6DqG8WpoMQmOEt4jq9cDM
 NEO4J_DATABASE=neo4j
 
 # For Neo4j AuraDB (cloud), use:
-# NEO4J_URI=neo4j+s://xxxxx.databases.neo4j.io
+# NEO4J_URI=neo4j+s://c5d71fed.databases.neo4j.io
 
 # OpenAI API Key (required for LLM and embeddings)
-OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_API_KEY=your_osk-proj-FjdvmBl_TFOkHV3hVesPDr-BtOL7UR5bzxbk0PY-lI-JAT8EL3tbIqm7Lqvkm5nlZaQSRBDdWNT3BlbkFJ7kyNm7VcSYR55-6vk55uIm-tcYND50Ty8I6g-DSWwuzn8QOkEKWHw-8FrNjiu3RPHLoKqC1IkA
 
 # Optional: Specify which OpenAI model to use
 # OPENAI_MODEL=gpt-4o
