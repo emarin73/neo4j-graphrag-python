@@ -438,7 +438,9 @@ async def build_knowledge_graph_from_pdf(
     track_schema: bool = False,
     schema_version: str | None = None,
     schema_description: str | None = None,
+    jurisdiction: str | None = None,
 ) -> PipelineResult:
+    print(f"DEBUG: Jurisdiction received: '{jurisdiction}'")
     """Build a knowledge graph from a PDF file.
 
     Args:
@@ -450,6 +452,8 @@ async def build_knowledge_graph_from_pdf(
         schema_version: Optional schema version string (e.g., "1.0.0"). If not provided
             and track_schema is True, version will auto-increment when schema changes
         schema_description: Optional description for the schema version
+        jurisdiction: Optional city name (e.g. 'Weston') to namespace IDs and segregate data
+
 
     Returns:
         PipelineResult with information about the graph construction
@@ -521,6 +525,28 @@ async def build_knowledge_graph_from_pdf(
                 "relationship_types": DEFAULT_RELATIONSHIP_TYPES,
                 "patterns": DEFAULT_PATTERNS,
             }
+
+            # Handle Multi-City Support: Namespace the schema
+            if jurisdiction and not schema:
+                logger.info(f"Applying Jurisdiction Namespace: '{jurisdiction}'")
+                
+                # 1. Add Jurisdiction Node
+                schema_to_use["node_types"].append({
+                    "label": "Jurisdiction", 
+                    "description": f"The specific city/jurisdiction for this code: '{jurisdiction}'"
+                })
+                
+                # 2. Add Relationship
+                schema_to_use["relationship_types"].append("BELONGS_TO")
+                schema_to_use["patterns"].append(("Ordinance", "BELONGS_TO", "Jurisdiction"))
+                
+                # 3. Namespace IDs in Descriptions
+                # We modify the descriptions to instruct the LLM to include the prefix
+                for node_type in schema_to_use["node_types"]:
+                    if node_type["label"] != "Jurisdiction":
+                        prefix = f"{jurisdiction}::"
+                        node_type["description"] = f"IMPORTANT: ID MUST start with '{prefix}'. {node_type['description']}"
+
             logger.info("Creating pipeline with predefined schema...")
             logger.info(f"  Node types: {len(schema_to_use.get('node_types', []))}")
             logger.info(
@@ -579,6 +605,32 @@ async def build_knowledge_graph_from_pdf(
             )
 
         return result
+
+        # Post-Processing for Jurisdiction Linking
+        if jurisdiction and driver:
+            logger.info("=" * 60)
+            logger.info(f"Linking all new data to Jurisdiction: {jurisdiction}")
+            query = """
+            MERGE (j:Jurisdiction {name: $jurisdiction, id: $jurisdiction})
+            WITH j
+            MATCH (o:Ordinance)
+            WHERE o.id STARTS WITH $prefix
+            MERGE (o)-[:BELONGS_TO]->(j)
+            """
+            
+            # Also link created Zones if possible, or assume Ordinance linking is sufficient
+            # For now, we link Ordinances.
+            
+            prefix = f"{jurisdiction}::"
+            try:
+                with driver.session() as session:
+                    session.run(query, jurisdiction=jurisdiction, prefix=prefix)
+                    logger.info("✓ Linked Ordinances to Jurisdiction")
+            except Exception as e:
+                logger.error(f"Failed to link jurisdiction: {e}")
+
+
+
 
     finally:
         # Clean up
@@ -679,6 +731,12 @@ Configuration:
         help="Optional description for the schema version (used with --track-schema)",
     )
 
+    parser.add_argument(
+        "--jurisdiction",
+        type=str,
+        help="Specify jurisdiction name (e.g. 'Hollywood') to namespace IDs and segregate data",
+    )
+
     return parser.parse_args()
 
 
@@ -728,6 +786,7 @@ async def main():
             track_schema=getattr(args, "track_schema", False),
             schema_version=getattr(args, "schema_version", None),
             schema_description=getattr(args, "schema_description", None),
+            jurisdiction=getattr(args, "jurisdiction", None),
         )
 
         logger.info("")

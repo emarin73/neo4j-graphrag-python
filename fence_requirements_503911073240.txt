@@ -1,0 +1,73 @@
+================================================================================
+FENCE HEIGHT AND SETBACK REQUIREMENTS SUMMARY
+================================================================================
+
+Parcel ID: 503911073240
+Address: 822 AZALEA PL, WESTON
+Zoning: Single-Family Residential Moderate (R-2)
+Property Type: Residential, single-family
+Corner Lot: No
+
+================================================================================
+HEIGHT REQUIREMENTS
+================================================================================
+
+[Section 124.19]
+No Building, Structure, or Use shall be erected, placed, or altered to a Height exceeding 42 feet
+
+[Section 124.19]
+All permitted Structures shall have the following Setbacks: Minimum Front Setback: 100 feet; Minimum Side Setback: 100 feet; Minimum Rear Setback: 100 feet
+
+[Section 124.19]
+No parking area shall be located within 50 feet of any residentially zoned property
+
+[Section 124.25]
+Terminal islands of at least 11 feet in width and 18 feet in length shall be provided at the end of each parking row
+
+[Section 124.28(B)(2)]
+A minimum of 25 feet adjacent to residential Uses
+
+[Section 124.28(B)(2)]
+A minimum of 30 feet on the west side of the Retail parcel (‘C’)
+
+[Section 124.28(B)(2)]
+A minimum of 40 feet along Weston Road and Emerald Park Circle; provided that an easement in favor of Broward County shall be permitted within the buffer along Weston Road
+
+[Section 124.28(B)(2)]
+A minimum of 20 feet on the south property line adjacent to the South New River (C-11) Canal Right-Of-Way
+
+[Section 124.28(B)(2)]
+(c) Continuous screening shall be provided except at driveways, and shall consist of berms and plantings, including a continuous Hedge, with shade Trees a maximum of 35 feet on center; where feasible, Trees shall be planted with triangular spacing with separations of 25 feet on center
+
+[Section 124.28(B)(2)]
+(f) The Landscape buffer on the north corner between Special Residential Parcel A-1 and Special Residential Parcel A-2 shall be a minimum of 30 feet overall between the edge of the parking and access road with 12 feet on Special Residential Parcel A-1 and 18 feet (consisting of a ten-foot terminal Landscape island and eight-foot Landscape buffer) on Special Residential Parcel A-2 with the exception of the two vehicular entry lanes, one hammerhead maneuvering area, one exit lane, and the one fire access exit lane.
+
+[Section 125.56]
+125.56(A)(3) If an individual private driveway intersects with a Public Right-Of-Way, no sight distance obstruction will be permitted within the ten-foot by 50-foot triangular area formed by the intersection of each side of the driveway and the Ultimate Right-Of-Way Lines with the driveway side of the triangle being ten feet in length, the Public Right-Of-Way side of the triangle being 50 feet in length, and the third side of the triangle being the line connecting the ends of the two other sides
+
+[Section 125.56]
+Any fence, Hedge, or other object which will cause a sight visibility obstruction within 100 feet of a driveway or cross Street, must be located outside of the clear sight triangle
+
+[Section 133.10(A)(9)]
+If high voltage is necessary for the operation of the Telecommunication Tower, associated equipment, or Backhaul Network or any Accessory Structures, “HIGH VOLTAGE—DANGER” warning Signs shall be permanently attached to the fence or wall and spaced no more than 40 feet apart
+
+[Section 133.10(A)(9)]
+'NO TRESPASSING' warning Signs shall be permanently attached to the fence or wall and spaced no more than 40 feet apart
+
+================================================================================
+SETBACK REQUIREMENTS
+================================================================================
+
+[Section 124.19]
+All permitted Structures shall have the following Setbacks: Minimum Front Setback: 100 feet; Minimum Side Setback: 100 feet; Minimum Rear Setback: 100 feet
+
+[Section 124.28(B)(2)]
+A minimum of 20 feet on the south property line adjacent to the South New River (C-11) Canal Right-Of-Way
+
+================================================================================
+IMPORTANT NOTES:
+- These are automated extractions from the ordinance text
+- Review fence_rules_503911073240.txt for complete regulations
+- Consult with Weston Building Department for official interpretation
+- HOA rules may impose additional restrictions
+================================================================================
